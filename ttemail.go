@@ -41,30 +41,25 @@ func isDirExists(pathname string) bool {
 	return true
 }
 
-func searchDir()(pathTmp string){
-
-	Path, _ := os.Getwd()
-	t := time.Now()
-	date := t.Format("20210701")
-	pathTmp = Path + "/" + date + "/" 
-	if isDirExists(pathTmp) {
-		fmt.Println("Directory exists ")
-	} else {
-		fmt.Println("Directory does not exist")		
-	}
-	return pathTmp
-}
 
 func main() {
 
-    pathTmp = searchDir()
-
-    FileList, _ = GetFileList(pathTmp, FileList)
-	
-	sendemail(FileList) 
+    Path, _ := os.Getwd()
+	t := time.Now()
+	date := t.Format("20210701")
+	pathTmp = Path + "/" + date + "/" 
+	if isDirExists(pathTmp) {	
+		 FileList, _ = GetFileList(pathTmp, FileList)
+	     Textfileslist :=strings.Join([]string(FileList), ",")
+	     sendemail(Textfileslist) 
+	} else {
+		 Texterr :="there is not DataBase files ." 
+		 sendemail(Texterr)
+	}
+	return 
 }
 
-func sendemail (FileList []string ){
+func sendemail (Textstring string ){
 
     e := email.NewEmail()  
 	 
@@ -74,7 +69,7 @@ func sendemail (FileList []string ){
  
     e.Subject = "ceshi"
 
-    e.Text = []byte(strings.Join([]string(FileList), ","))
+    e.Text = []byte(Textstring)
 	
     err := e.Send("smtp.163.com:25", smtp.PlainAuth("", "gecx1057", "UAQMGIOJLTJJHDCL", "smtp.163.com"))
     if err != nil {
