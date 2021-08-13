@@ -7,34 +7,10 @@ import (
 	"log"
 	"net"
 	"os"
+	"sync"
 )
 
 var FileList []string
-	
-func SendFile(filename string, conn net.Conn) {
-
-	f, err := os.Open(filename)
-	if err != nil {
-		fmt.Println("os.Open err=", err)
-		WriteLog("os.Open err=", err.Error())
-		return
-	}
-	defer f.Close()
-
-	buf := make([]byte, 1024*4)
-	for {
-		n, err := f.Read(buf)
-		if err != nil {
-			if err == io.EOF {
-				fmt.Println("File transfer complete")
-			} else {
-				WriteLog(" f.Read err=", err.Error())
-			}
-			return
-		}
-		conn.Write(buf[:n])
-	}
-}
 
 func WriteLog(Tips string, error string) {
 
@@ -68,26 +44,43 @@ func GetFileList(pathname string, FileList []string) ([]string, error) {
 
 func main() {
 
-	FileList, _ = GetFileList(".", FileList)
+	FileList, _ = GetFileList("./servo", FileList)
 
-	listernner, err := net.Listen("tcp", "127.0.0.1:5361")
+	listernner, err := net.Listen("tcp", "0.0.0.0:5360")
 	if err != nil {
 		fmt.Println("net.Listen err =", err)
 		return
 	}
 	defer listernner.Close()
-
 	for {
-		for i := 0; i < len(FileList); i++ {
-			fmt.Println("Waiting for ....")
-			conn, err := listernner.Accept()
-			if err != nil {
-				fmt.Println("listenner.Accept err=", err)
-				continue
-			}
-			defer conn.Close()
+		fmt.Println("Waiting for ....")
+		conn, err := listernner.Accept()
+		if err != nil {
+			fmt.Println("listenner.Accept err=", err)
+		}
+		defer conn.Close()
 
-			info, err := os.Stat(FileList[i])
+		var wg sync.WaitGroup
+		wg.Add(1)
+		go servo(&wg, conn)
+		wg.Wait()
+	}
+}
+
+func servo(wg *sync.WaitGroup, conn net.Conn) {
+
+	for _, Filestr := range FileList {
+
+		var n = 0
+		buf := make([]byte, 1024)
+		n, err := conn.Read(buf)
+		if err != nil {
+			WriteLog("conn.Read err=", err.Error())
+		}
+
+		if "complete" == string(buf[:n]) {
+
+			info, err := os.Stat(Filestr)
 			if err != nil {
 				WriteLog("os.Stat err= ", err.Error())
 				return
@@ -98,24 +91,34 @@ func main() {
 				WriteLog("conn.Write err =", err.Error())
 				return
 			}
-
-			var n = 0
-			buf := make([]byte, 1024)
-			n, err = conn.Read(buf)
-			if err != nil {
-				WriteLog("conn.Read err=", err.Error())
-				return
-			}
-
-			if "ok" == string(buf[:n]) {
-				SendFile(FileList[i], conn)
-			}
-
-			if i == len(FileList)-1 {
-				conn.Write([]byte("over"))
-				fmt.Println("The task is complete !")
-			}
-			conn.Close()
+			SendFile(Filestr, conn)
 		}
+	}
+	conn.Write([]byte("!chunnet@qq.com!"))
+	wg.Done()
+}
+
+func SendFile(filename string, conn net.Conn) {
+
+	f, err := os.Open(filename)
+	if err != nil {
+		fmt.Println("os.Open err=", err)
+		WriteLog("os.Open err=", err.Error())
+		return
+	}
+	defer f.Close()
+
+	buf := make([]byte, 1024*4)
+	for {
+		n, err := f.Read(buf)
+		if err != nil {
+			if err == io.EOF {
+				fmt.Println("File transfer complete")
+			} else {
+				WriteLog(" f.Read err=", err.Error())
+			}
+			return
+		}
+		conn.Write(buf[:n])
 	}
 }

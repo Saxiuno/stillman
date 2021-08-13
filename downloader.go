@@ -1,13 +1,13 @@
 package main
 
 import (
+	"flag"
 	"fmt"
 	"io"
 	"net"
 	"os"
-	"time"
-	"flag"
 	"strconv"
+	"time"
 )
 
 var Addrstring string
@@ -29,7 +29,6 @@ func CreateDir() (pathTmp string) {
 	if isDirExists(pathTmp) {
 		fmt.Println("Directory exists ")
 	} else {
-		//fmt.Println("Directory does not exist
 		err := os.Mkdir(pathTmp, 0777)
 		if err != nil {
 			fmt.Println("CreateDir err", err)
@@ -38,32 +37,33 @@ func CreateDir() (pathTmp string) {
 	return pathTmp
 }
 
-func init(){
+func init() {
 
-    var user string
-    var pwd string
-    var host string
-    var port int
-    flag.StringVar(&user, "u", "", "用户名,默认为空")
-    flag.StringVar(&pwd, "pwd", "", "密码,默认为空")
-    flag.StringVar(&host, "h", "localhost","")
-    flag.IntVar(&port, "port", 5361,"")
-    flag.Parse()	
-	Addrstring = host + ":"+ strconv.Itoa(port)
+	var user string
+	var pwd string
+	var host string
+	var port int
+	flag.StringVar(&user, "u", "", "用户名,默认为空")
+	flag.StringVar(&pwd, "pwd", "", "密码,默认为空")
+	flag.StringVar(&host, "h", "localhost", "")
+	flag.IntVar(&port, "port", 5360, "")
+	flag.Parse()
+	Addrstring = host + ":" + strconv.Itoa(port)
 }
 
 func main() {
-  
+
 	pathTmp := CreateDir()
 
+	conn, err := net.Dial("tcp", Addrstring)
+	if err != nil {
+		fmt.Println("net.Dial err=", err)
+		return
+	}
+	defer conn.Close()
+
 	for {
-		conn, err := net.Dial("tcp", Addrstring)
-		if err != nil {
-			fmt.Println("net.Dial err=", err)
-			return
-		}
-		defer conn.Close()
-		
+		conn.Write([]byte("complete"))
 		buf := make([]byte, 1024)
 		n, err := conn.Read(buf)
 		if err != nil {
@@ -71,40 +71,50 @@ func main() {
 			return
 		}
 
-		filename := string(buf[:n])
-		conn.Write([]byte("ok"))
-		fmt.Println("Prereceive file :", filename)
-
-		f, err := os.OpenFile(pathTmp+"/"+filename, os.O_RDWR|os.O_CREATE|os.O_TRUNC, 0666)
-		if err != nil {
-			fmt.Println("os.Create err=", err)
+		if "!chunnet@qq.com!" == string(buf[:n]) {
+			fmt.Println("The task is complete !")
 			return
 		}
-		defer f.Close()
+		filename := string(buf[:n])
+		fmt.Println("Prereceive file :", filename)
+		download(pathTmp, filename, conn)
 
-		buf = make([]byte, 1024)
-		for {
-			n, err := conn.Read(buf) 
-			if err != nil {
-				if err == io.EOF {
-					fmt.Println("File received ")
-				} else {
-					fmt.Println("conn.Read err=", err)
+	}
+}
 
-				}
-				break
-			}
+func download(pathTmp string, filename string, conn net.Conn) {
 
-			if "over" == string(buf[:n]) {
-				fmt.Println("The task is complete !")
+	f, err := os.OpenFile(pathTmp+"/"+filename, os.O_RDWR|os.O_CREATE|os.O_TRUNC, 0666)
+	if err != nil {
+		fmt.Println("os.Create err=", err)
+		return
+	}
+	defer f.Close()
+
+	buf := make([]byte, 1024)
+	for {
+		n, err := conn.Read(buf)
+
+		if n == 0 {
+			fmt.Println("n==0 File received ")
+			return
+		} else {
+			f.Write(buf[:n])
+		}
+
+		if n < 1024 {
+			fmt.Println("File received2 ")
+			return
+		}
+
+		if err != nil {
+			if err == io.EOF {
+				fmt.Println("File received ")
+				return
+			} else {
+				fmt.Println("conn.Read err=", err)
 				return
 			}
-
-			if n == 0 {
-				fmt.Println("n==0 File received ")
-				break
-			}
-			f.Write(buf[:n])
 		}
 	}
 }
