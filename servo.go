@@ -3,7 +3,7 @@ package main
 import (
 	"fmt"
 	"io"
-	"io/ioutil"
+	"path/filepath"
 	"log"
 	"net"
 	"os"
@@ -11,6 +11,15 @@ import (
 )
 
 var FileList []string
+var filemax int64 
+
+func visit(path string, f os.FileInfo, err error) error {
+
+    if !f.IsDir(){	
+    FileList = append(FileList,path)
+	}
+    return nil
+}
 
 func WriteLog(Tips string, error string) {
 
@@ -23,28 +32,11 @@ func WriteLog(Tips string, error string) {
 	logger.Print(Tips, error)
 }
 
-func GetFileList(pathname string, FileList []string) ([]string, error) {
-
-	files, err := ioutil.ReadDir(pathname)
-
-	if err != nil {
-		fmt.Println("read dir fail:", err)
-		return FileList, err
-	}
-
-	for _, fi := range files {
-		if fi.IsDir() {
-			continue
-		}
-		println(fi.Name())
-		FileList = append(FileList, fi.Name())
-	}
-	return FileList, nil
-}
 
 func main() {
 
-	FileList, _ = GetFileList("./servo", FileList)
+    root := `./servo`
+    filepath.Walk(root, visit)
 
 	listernner, err := net.Listen("tcp", "0.0.0.0:5360")
 	if err != nil {
@@ -80,7 +72,7 @@ func servo(wg *sync.WaitGroup, conn net.Conn) {
 
 		if "complete" == string(buf[:n]) {
 
-			info, err := os.Stat(Filestr)
+		info, err := os.Stat(Filestr)
 			if err != nil {
 				WriteLog("os.Stat err= ", err.Error())
 				return
@@ -94,8 +86,9 @@ func servo(wg *sync.WaitGroup, conn net.Conn) {
 			SendFile(Filestr, conn)
 		}
 	}
-	conn.Write([]byte("!chunnet@qq.com!"))
+
 	wg.Done()
+	conn.Close()
 }
 
 func SendFile(filename string, conn net.Conn) {
@@ -119,6 +112,7 @@ func SendFile(filename string, conn net.Conn) {
 			}
 			return
 		}
+		
 		conn.Write(buf[:n])
 	}
 }

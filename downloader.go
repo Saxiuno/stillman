@@ -71,10 +71,6 @@ func main() {
 			return
 		}
 
-		if "!chunnet@qq.com!" == string(buf[:n]) {
-			fmt.Println("The task is complete !")
-			return
-		}
 		filename := string(buf[:n])
 		fmt.Println("Prereceive file :", filename)
 		download(pathTmp, filename, conn)
@@ -94,27 +90,25 @@ func download(pathTmp string, filename string, conn net.Conn) {
 	buf := make([]byte, 1024)
 	for {
 		n, err := conn.Read(buf)
-
+        f.Write(buf[:n])
 		if n == 0 {
-			fmt.Println("n==0 File received ")
-			return
-		} else {
-			f.Write(buf[:n])
-		}
+			fmt.Println("n==0 File received ")			
+			break
+		} 
 
-		if n < 1024 {
-			fmt.Println("File received2 ")
-			return
+        if n < 1024 {
+			fmt.Println("n<1024 File received2 ")		
+			break
 		}
-
 		if err != nil {
 			if err == io.EOF {
 				fmt.Println("File received ")
-				return
+				break
 			} else {
 				fmt.Println("conn.Read err=", err)
-				return
+				break
 			}
 		}
 	}
+	return
 }
